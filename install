@@ -1,0 +1,148 @@
+#!/bin/bash
+
+HOME=/data/data/com.termux/files/home/
+PREP=/data/data/com.termux/files/usr/bin
+SDK=`getprop ro.build.version.sdk`
+source $(pwd)/lib/animation.sh
+
+PACKAGES=(
+    x11-repo tigervnc xfce4
+)
+
+function author(){
+    printf '\n    Author: Ryuuou'
+    printf '\n    Visit Blog: https://natsukaryuuou.blogspot.com'
+    printf '\n    Ver:        0.1'
+}
+
+function ask(){
+    # Source ask from Nethunter Rootless
+    while true; do
+
+        if [ "${2:-}" = "Y" ]; then
+            prompt="Y/n"
+            default=Y
+        elif [ "${2:-}" = "N" ]; then
+            prompt="y/N"
+            default=N
+        else
+            prompt="y/n"
+            default=
+        fi
+
+        # Ask the question
+        printf "\e[95m\n\n  [?] \e[0m"
+        read -p "$1 [$prompt] " REPLY
+
+        # Default?
+        if [ -z "$REPLY" ]; then
+            REPLY=$default
+        fi
+
+        printf "${reset}"
+
+        # Check if the reply is valid
+        case "$REPLY" in
+            Y*|y*) return 0 ;;
+            N*|n*) return 1 ;;
+        esac
+    done
+}
+
+function CheckSDK(){
+    setterm -cursor off
+    printf '\n  \e[92m[>] \e[0mChecking Android version...'
+    sleep 3.5
+
+    if [ $SDK -lt 24 ]; then
+        printf '\n  \e[91m[!] \e[0mOpps... Your device is under android version 7.0'
+        exit
+
+    else
+        printf '\n  \e[94m[+] \e[0mCongratulations, your device passed verification XD\n'
+        sleep 1
+    fi
+}
+
+function package(){
+    setterm -cursor on
+    if ask "Are you sure?"; then
+        sleep 0.5
+        for PACKAGE in "${PACKAGES[@]}"; do
+            start_animation "  \e[96m[\] \e[0mInstalling $PACKAGE  "
+            apt install -y $PACKAGE &> /dev/null
+            Check_Package=$(pkg list-installed $PACKAGE 2> /dev/null | tail -n 1)
+            Check_Package2=${Check_Package%/*}
+
+            if [[ $Check_Package2 == $PACKAGE ]]; then
+                stop_animation $? || exit 1
+
+            else
+                stop_animation $?
+            fi
+
+        done
+
+        setterm -cursor on
+
+    else
+        exit
+     fi
+}
+
+function setVnc(){
+    setterm -cursor off
+    if [ -d "$HOME.vnc/" ]; then
+        printf "\n  \e[94m[*] \e[0mDirectory OK..."
+
+        if [ -f "$HOME.vnc/passwd" ]; then
+            printf '\n  \e[94m[+] \e[0mPassword already exists...'
+
+        else
+            printf '\n  \e[92m[>] \e[0mChecking password Vnc...'
+            sleep 1.3
+            printf '\n  Create your password...\n\n'
+            setterm -cursor on
+            vncpasswd
+
+        fi
+
+    else
+      mkdir $HOME.vnc
+      setVnc
+
+    fi
+
+    rm -f $HOME.vnc/xstartup
+    cat > $HOME.vnc/xstartup <<- EOF
+#!/usr/bin/bash
+xfce4-session &
+EOF
+
+    chmod 755 $HOME.vnc/xstartup
+
+}
+
+function StartVNC(){
+    setterm -cursor off
+    printf '\n  \e[92m[>] \e[0mStarting vnc server...'
+    sleep 0.5
+    vncserver -localhost &> /dev/null
+    hostSer=$(vncserver -list | grep : | awk "{print $1}" | sed s/"TigerVNC"/"localhost"/)
+
+    End="Running VNC was successful, and now open your VNC
+application like VNC Viewer then enter the host below and
+the password you created earlier."
+
+    printf "\n\n$End"
+    printf "\n\n$hostSer \n\n"
+    setterm -cursor on
+}
+
+
+clear
+CheckSDK
+author
+package
+setVnc
+StartVNC
